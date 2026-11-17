@@ -148,7 +148,6 @@ function renderOrders() {
       ${o.status === 'soon' ? `
         <div class="order-foot">
           <span class="warn-text">Còn 10 phút là hết giờ</span>
-          <button class="btn btn-outline btn-sm" data-extend="${o.code}">Gia hạn</button>
         </div>` : ''}
     </article>
   `).join('');
@@ -198,7 +197,6 @@ function renderNotifs() {
             <p>${o.room} · #${o.code} · Kết thúc lúc ${o.end}</p>
             <small>${n.time}</small>
           </div>
-          <button class="btn btn-primary btn-sm" data-np-extend="${o.code}">Gia hạn</button>
         </div>`;
     }
     return `
@@ -236,9 +234,7 @@ function initBell() {
   document.addEventListener('click', e => { if (!panel.contains(e.target)) panel.hidden = true; });
 
   panel.addEventListener('click', e => {
-    const ext = e.target.closest('[data-np-extend]');
     const det = e.target.closest('[data-np-detail]');
-    if (ext) { panel.hidden = true; openExtend(ext.dataset.npExtend); }
     if (det) {
       const n = NOTIFS.find(x => x.code === det.dataset.npDetail);
       if (n) n.unread = false;
@@ -261,12 +257,10 @@ function showReminder() {
       <div class="rm-main">
         <b>Còn 10 phút là hết giờ</b>
         <p>${o.room} · Hôm nay · Kết thúc lúc ${o.end}</p>
-        <button class="btn btn-primary btn-sm" data-rm-extend>Gia hạn</button>
       </div>
       <button class="rm-x" data-rm-close aria-label="Đóng">${icon('x')}</button>
     </div>`;
   box.querySelector('[data-rm-close]').onclick = () => { reminderDismissed = true; hideReminder(); };
-  box.querySelector('[data-rm-extend]').onclick = () => { hideReminder(); openExtend(o.code); };
 }
 
 /* ===== Khởi tạo ===== */
@@ -311,12 +305,10 @@ function initUA1() {
     }
   });
 
-  // Chi tiết / Gia hạn
+  // Chi tiết
   document.getElementById('orderList').addEventListener('click', e => {
     const detail = e.target.closest('[data-detail]');
-    const extend = e.target.closest('[data-extend]');
     if (detail) openDetail(detail.dataset.detail);
-    if (extend) openExtend(extend.dataset.extend);
   });
 }
 

@@ -186,7 +186,7 @@ function submitBooking(st, needFile) {
 
 /* =====================================================
    2. THEO DÕI YÊU CẦU (chi tiết đơn)
-   flash: kết quả vừa thực hiện { type: 'reschedule' | 'extend', ... }
+   flash: kết quả vừa thực hiện { type: 'reschedule', old: {...} }
    ===================================================== */
 function timeline(o) {
   const lg = logOf(o), d = fmtDate(TODAY);
@@ -213,14 +213,10 @@ function openDetail(code, flash) {
 
   let sub = `#${o.code} · Gửi lúc ${lg.sent}, ${fmtDate(TODAY)}`;
   if (flash && flash.type === 'reschedule') sub = `#${o.code} · Lịch mượn đã được cập nhật`;
-  if (flash && flash.type === 'extend') sub = `#${o.code} · Đã cập nhật thời gian`;
 
   let body = '';
   if (flash && flash.type === 'reschedule') {
     body += alertBox('ok', 'Đổi lịch thành công', `Đơn #${o.code} đã được cập nhật sang ${o.room}.`, 'check');
-  }
-  if (flash && flash.type === 'extend') {
-    body += alertBox('ok', `Gia hạn thành công thêm ${flash.minutes} phút`, `Bạn có thể tiếp tục sử dụng ${o.room} đến ${o.end}.`, 'check');
   }
 
   body += `<div class="status-line"><span class="badge ${STATUS_CLASS[o.status]}">${STATUS_TEXT[o.status]}</span></div>`;
@@ -238,52 +234,43 @@ function openDetail(code, flash) {
     body += alertBox('err', 'Lý do từ chối', o.reason || 'Không có lý do cụ thể.');
   }
 
-  if (flash && flash.type === 'extend') {
-    body += alertBox('ok', `Đã xác nhận khung giờ ${flash.from} – ${flash.to}`, 'Phòng không có lịch trùng trong thời gian gia hạn.', 'check');
-    body += `<hr class="line"><h4 class="sec">Chi tiết gia hạn</h4>
-             <p class="muted">Thêm ${flash.minutes} phút · Từ ${flash.from} đến ${flash.to}</p>
-             <p class="muted">${esc(flash.reason)}</p>`;
-    body += alertBox('brand', 'Nhận và trả phòng trực tiếp tại Phòng CSVC', `Vui lòng trả phòng trước hoặc đúng ${flash.to}.`, 'info');
+  if (isOk) {
+    body += `<div class="kv"><p><b>Mã xác nhận: ${o.code}</b></p><p>Người mượn: Nguyễn Đình Thuần</p><p>${r.eq}</p></div>`;
+  }
+  if (flash && flash.type === 'reschedule') {
+    const old = flash.old;
+    body += `<hr class="line"><h4 class="sec">Thay đổi vừa thực hiện</h4>`;
+    body += old.room !== o.room
+      ? `<div class="chg muted"><span>${old.room}</span><span>→</span><b>${o.room}</b></div>`
+      : `<p class="muted">Giữ nguyên phòng ${o.room}</p>`;
+    body += old.date !== o.date
+      ? `<p class="muted">Ngày ${fmtShort(old.date)} → ${fmtShort(o.date)}</p>`
+      : `<p class="muted">Giữ nguyên ngày ${fmtShort(o.date)}</p>`;
+    body += (old.start !== o.start || old.end !== o.end)
+      ? `<p class="muted">Thời gian ${old.start} – ${old.end} → ${o.start} – ${o.end}</p>`
+      : `<p class="muted">Giữ nguyên thời gian ${o.start} – ${o.end}</p>`;
+    body += alertBox('ok', 'Lịch cũ đã được giải phóng', `${old.room} · ${fmtDate(old.date)} · ${old.start} – ${old.end}`, 'check');
+  } else if (o.status !== 'cancelled') {
+    body += `<hr class="line">`;
+  }
+
+  if (o.status === 'cancelled') {
+    body += alertBox('gray', '', 'Không còn lịch mượn cho yêu cầu này.', 'info');
   } else {
-    if (isOk) {
-      body += `<div class="kv"><p><b>Mã xác nhận: ${o.code}</b></p><p>Người mượn: Nguyễn Đình Thuần</p><p>${r.eq}</p></div>`;
-    }
-    if (flash && flash.type === 'reschedule') {
-      const old = flash.old;
-      body += `<hr class="line"><h4 class="sec">Thay đổi vừa thực hiện</h4>`;
-      body += old.room !== o.room
-        ? `<div class="chg muted"><span>${old.room}</span><span>→</span><b>${o.room}</b></div>`
-        : `<p class="muted">Giữ nguyên phòng ${o.room}</p>`;
-      body += old.date !== o.date
-        ? `<p class="muted">Ngày ${fmtShort(old.date)} → ${fmtShort(o.date)}</p>`
-        : `<p class="muted">Giữ nguyên ngày ${fmtShort(o.date)}</p>`;
-      body += (old.start !== o.start || old.end !== o.end)
-        ? `<p class="muted">Thời gian ${old.start} – ${old.end} → ${o.start} – ${o.end}</p>`
-        : `<p class="muted">Giữ nguyên thời gian ${o.start} – ${o.end}</p>`;
-      body += alertBox('ok', 'Lịch cũ đã được giải phóng', `${old.room} · ${fmtDate(old.date)} · ${old.start} – ${old.end}`, 'check');
-    } else if (o.status !== 'cancelled') {
-      body += `<hr class="line">`;
-    }
+    body += timeline(o);
+  }
 
-    if (o.status === 'cancelled') {
-      body += alertBox('gray', '', 'Không còn lịch mượn cho yêu cầu này.', 'info');
-    } else {
-      body += timeline(o);
-    }
-
-    if (o.status === 'pending') body += alertBox('brand', 'Hệ thống tự chuyển đơn đến đúng bộ phận duyệt', '', 'info');
-    if (isOk) body += alertBox('brand', 'Nhận và trả phòng trực tiếp tại Phòng CSVC', 'Vui lòng cung cấp mã xác nhận khi nhận phòng.', 'info');
-    if (o.status === 'rejected') {
-      body += `<hr class="line"><h4 class="sec">Tìm một khung giờ phù hợp hơn</h4>
-               <p class="muted">Chọn lại để trở về bộ lọc Tìm phòng. Điều chỉnh ngày, giờ hoặc sức chứa và gửi một yêu cầu mới.</p>`;
-      body += alertBox('info', 'Đơn này không giữ phòng', 'Chỉ các phòng còn trống trong thời gian mới được hiển thị.', 'info');
-    }
+  if (o.status === 'pending') body += alertBox('brand', 'Hệ thống tự chuyển đơn đến đúng bộ phận duyệt', '', 'info');
+  if (isOk) body += alertBox('brand', 'Nhận và trả phòng trực tiếp tại Phòng CSVC', 'Vui lòng cung cấp mã xác nhận khi nhận phòng.', 'info');
+  if (o.status === 'rejected') {
+    body += `<hr class="line"><h4 class="sec">Tìm một khung giờ phù hợp hơn</h4>
+             <p class="muted">Chọn lại để trở về bộ lọc Tìm phòng. Điều chỉnh ngày, giờ hoặc sức chứa và gửi một yêu cầu mới.</p>`;
+    body += alertBox('info', 'Đơn này không giữ phòng', 'Chỉ các phòng còn trống trong thời gian mới được hiển thị.', 'info');
   }
 
   let foot = '';
-  if (flash && flash.type === 'extend') foot = mFoot('<button class="btn btn-outline" data-close>Đóng</button>', 'full');
-  else if (o.status === 'approved') foot = mFoot(`<button class="btn btn-outline" id="dCancel">Hủy lịch</button><button class="btn btn-primary" id="dResched">${icon('calendar')} Đổi lịch</button>`);
-  else if (o.status === 'soon') foot = mFoot(`<button class="btn btn-outline" data-close>Đóng</button><button class="btn btn-primary" id="dExtend">Gia hạn</button>`);
+  if (o.status === 'approved') foot = mFoot(`<button class="btn btn-outline" id="dCancel">Hủy lịch</button><button class="btn btn-primary" id="dResched">${icon('calendar')} Đổi lịch</button>`);
+  else if (o.status === 'soon') foot = mFoot('<button class="btn btn-outline" data-close>Đóng</button>', 'full');
   else if (o.status === 'rejected') foot = mFoot(`<button class="btn btn-primary" id="dRetry">${icon('search')} Chọn lại phòng/thời gian</button>`, 'full');
   else if (o.status === 'cancelled') foot = mFoot('<button class="btn btn-outline" data-close>Đóng</button>', 'full');
 
@@ -292,7 +279,6 @@ function openDetail(code, flash) {
   const on = (id, fn) => { const el = m.querySelector(id); if (el) el.addEventListener('click', fn); };
   on('#dCancel', () => openCancel(o.code));
   on('#dResched', () => openReschedule(o.code));
-  on('#dExtend', () => openExtend(o.code));
   on('#dRetry', () => { closeModal(); reSearchFrom(o); });
 }
 
@@ -312,6 +298,7 @@ function renderReschedule(o, st) {
     : [];
   if (!list.find(r => r.name === st.room)) st.room = list.length ? list[0].name : null;
   const pick = st.room ? getRoom(st.room) : null;
+  const cur = getRoom(o.room);
 
   const m = setModal(`
     ${mHead('Đổi lịch mượn phòng', `Đơn #${o.code} · ${esc(o.purpose)}`)}
@@ -392,100 +379,4 @@ function openCancel(code) {
       document.getElementById('searchCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
-}
-
-/* =====================================================
-   5. GIA HẠN THỜI GIAN MƯỢN
-   ===================================================== */
-function openExtend(code, st) {
-  const o = getOrder(code);
-  const r = getRoom(o.room);
-  st = st || { min: 30, reason: '', err: false };
-  const newEnd = () => toTime(toMin(o.end) + st.min);
-
-  const m = setModal(`
-    ${mHead('Gia hạn phòng', `#${o.code} · ${esc(o.purpose)}`)}
-    <div class="m-body">
-      ${sumBox(`${o.room} · ${r.type}`, o, `${r.cap} chỗ · ${r.eq}`)}
-      ${o.status === 'soon' ? alertBox('warn', 'Còn 10 phút là hết giờ', `Lịch mượn hiện tại kết thúc lúc ${o.end}.`) : ''}
-      <div class="f-group">
-        <label>Thời gian gia hạn thêm *</label>
-        <select id="xMin">
-          ${[30, 60, 90].map(v => `<option value="${v}" ${v === st.min ? 'selected' : ''}>${v} phút</option>`).join('')}
-        </select>
-      </div>
-      <div class="newend"><small>Giờ kết thúc mới</small><b id="xNewEnd">${newEnd()} · ${fmtDate(o.date)}</b></div>
-      <div class="f-group">
-        <label>Lý do gia hạn *</label>
-        <textarea id="xReason" class="${st.err ? 'invalid' : ''}" placeholder="Nhập lý do cần gia hạn">${esc(st.reason)}</textarea>
-        ${st.err ? '<p class="err">Vui lòng nhập lý do gia hạn.</p>' : ''}
-      </div>
-      <p class="req-note">Chỉ được gia hạn nếu phòng còn trống sau giờ kết thúc hiện tại. Hệ thống kiểm tra khi gửi yêu cầu.</p>
-    </div>
-    ${mFoot(`<button class="btn btn-outline" data-close>Quay lại</button><button class="btn btn-primary" id="xOk">Gửi gia hạn</button>`)}
-  `);
-
-  m.querySelector('#xMin').addEventListener('change', ev => {
-    st.min = Number(ev.target.value);
-    m.querySelector('#xNewEnd').textContent = `${newEnd()} · ${fmtDate(o.date)}`;
-  });
-  m.querySelector('#xReason').addEventListener('input', ev => { st.reason = ev.target.value; });
-
-  m.querySelector('#xOk').addEventListener('click', () => {
-    if (!st.reason.trim()) { st.err = true; return openExtend(code, st); }
-
-    const c = findConflict(o.room, o.date, o.end, newEnd(), o.code);
-    if (c) return renderExtendConflict(o, st, newEnd(), c);
-
-    // Gia hạn thành công
-    const from = o.end, to = newEnd();
-    o.end = to;
-    if (o.status === 'soon') o.status = 'approved';
-    dropNotif(o.code);
-    hideReminder();
-    renderOrders(); renderNotifs(); renderRooms();
-    openDetail(o.code, { type: 'extend', minutes: st.min, from, to, reason: st.reason.trim() });
-  });
-}
-
-function renderExtendConflict(o, st, newEnd, c) {
-  const cap = getRoom(o.room).cap;
-  const sug = ROOMS.filter(r => r.name !== o.room && r.cap >= cap && !findConflict(r.name, o.date, o.end, newEnd));
-  let sel = sug.length ? sug[0].name : null;
-
-  const draw = () => {
-    const m = setModal(`
-      ${mHead(`Không thể gia hạn ${o.room}`, `#${o.code} · Lịch hiện tại vẫn kết thúc lúc ${o.end}`)}
-      <div class="m-body">
-        ${alertBox('err', `Phòng có lịch mượn tiếp theo lúc ${c.start}`, `${o.room} không trống trong khoảng ${o.end} – ${newEnd}. Vui lòng trả phòng đúng giờ.`)}
-        ${sug.length ? `
-          <h4 class="sec">Phòng gợi ý cho ${st.min} phút tiếp theo</h4>
-          ${sug.map(r => `
-            <button type="button" class="sug ${r.name === sel ? 'sel' : ''}" data-sug="${r.name}">
-              <span class="radio"></span>
-              <b>${r.name} · ${r.type}</b>
-              <small>${r.cap} chỗ · ${r.building}, ${r.floor.toLowerCase()} · ${r.eq.replace(/ · /g, ', ')}</small>
-              <small class="free">Còn trống · ${fmtDate(o.date)} · ${o.end} – ${newEnd}</small>
-            </button>`).join('')}
-          <p class="req-note">Yêu cầu chuyển phòng sử dụng lại mục đích mượn của bạn và được kiểm tra lịch trống trước khi gửi.</p>`
-        : alertBox('gray', '', 'Hiện chưa có phòng trống phù hợp để gợi ý. Vui lòng trả phòng đúng giờ.', 'info')}
-      </div>
-      ${sug.length
-        ? mFoot('<button class="btn btn-primary" id="xMove">Chuyển sang phòng gợi ý</button>', 'full')
-        : mFoot('<button class="btn btn-outline" data-close>Đóng</button>', 'full')}
-    `);
-
-    m.querySelectorAll('[data-sug]').forEach(b => b.addEventListener('click', () => { sel = b.dataset.sug; draw(); }));
-    const mv = m.querySelector('#xMove');
-    if (mv) mv.addEventListener('click', () => {
-      const code = nextCode();
-      ORDERS.unshift({ code, room: sel, date: o.date, start: o.end, end: newEnd, purpose: o.purpose, status: 'pending', sent: '10:55' });
-      closeModal();
-      highlightCode = code;
-      setOrderFilter('all');
-      showOrderBanner('ok', `Đã gửi yêu cầu chuyển sang ${sel}`,
-        `Đơn mới #${code} · ${fmtDate(o.date)} · ${o.end} – ${newEnd} · Chờ duyệt. ${o.room} vẫn cần được trả lúc ${o.end}.`);
-    });
-  };
-  draw();
 }
